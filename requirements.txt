@@ -4,5 +4,5 @@ streamlit
 fastapi
 uvicorn
 sentence-transformers
-chromadb
+supabase
 streamlit-chat
