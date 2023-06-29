@@ -8,21 +8,19 @@ from langchain.prompts import (
     MessagesPlaceholder
 )
 import streamlit as st
-from sentence_transformers import SentenceTransformer, util
-from chromadb import ChromaDB
+import io
+from sklearn.feature_extraction.text import TfidfVectorizer
 from streamlit_chat import message
 from utils import *
-
-st.subheader("Chatbot with Langchain, ChatGPT, ChromaDB, and Streamlit")
+import supabase
 
 # Initialize ChatGPT model
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key="***REMOVED***")
+llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key="YOUR_OPENAI_API_KEY")
 
-# Initialize SentenceTransformer model
-sentence_transformer_model = SentenceTransformer("LLM chatbot")
-
-# Initialize ChromaDB
-chromadb = ChromaDB("Your-ChromaDB-Path")
+# Initialize Supabase client
+supabase_url = "https://ffcrjxswlivnhtlkjyym.supabase.co"
+supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY3JqeHN3bGl2bmh0bGtqeXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODgwMzYyNTksImV4cCI6MjAwMzYxMjI1OX0.EL_nf3hQiuwGUcAF4JKkafFGtR75c3eoK4wMuOt_8GE"
+supabase_client = supabase.create_client(supabase_url, supabase_key)
 
 # Initialize ConversationChain and buffer memory
 if 'buffer_memory' not in st.session_state:
@@ -33,51 +31,60 @@ system_msg_template = SystemMessagePromptTemplate.from_template(
     and if the answer is not contained within the text below, say 'I don't know'"""
 )
 
-human_msg_template = HumanMessagePromptTemplate.from_template(template="{input}")
+# Streamlit app code
+st.subheader("Chatbot with Langchain, ChatGPT, and Streamlit")
 
-prompt_template = ChatPromptTemplate.from_messages([system_msg_template, MessagesPlaceholder(variable_name="history"), human_msg_template])
-
-conversation = ConversationChain(memory=st.session_state.buffer_memory, prompt=prompt_template, llm=llm, verbose=True)
-
-# Container for chat history
-response_container = st.container()
-# Container for text box
-text_container = st.container()
-
-# File upload section
-uploaded_file = st.file_uploader("Upload a document", type=["pdf", "txt"])
+# File upload functionality
+uploaded_file = st.file_uploader("Upload a document", type=["pdf"])
 
 if uploaded_file is not None:
-    file_contents = uploaded_file.read()
+    document_name = uploaded_file.name
+    document_content = io.BytesIO(uploaded_file.read())
 
-    with text_container:
-        query = st.text_input("Query: ", key="input")
-        if query:
-            with st.spinner("Typing..."):
-                conversation_string = get_conversation_string()
-                refined_query = query_refiner(conversation_string, query)
-                st.subheader("Refined Query:")
-                st.write(refined_query)
-                context = find_match(refined_query)
+    # Process the document and extract embeddings
+    document_embeddings = process_document(document_content)
 
-                # Encode the query using SentenceTransformer
-                query_embedding = sentence_transformer_model.encode([context])
+    # Save document embeddings to Supabase
+    save_embeddings_to_supabase(document_name, document_embeddings)
 
-                # Retrieve most similar document embeddings from ChromaDB
-                similar_docs = chromadb.search(query_embedding, top_k=3)
+    st.success("Document uploaded and embeddings saved to Supabase.")
 
-                # Extract the text of similar documents
-                similar_texts = [text for _, text in similar_docs]
+# Helper function to process the document and extract embeddings
+def process_document(document_content):
+    # Convert the document content to text or process it as required
+    document_text = preprocess_document(document_content)
 
-                # Perform chatbot prediction
-                response = conversation.predict(input=f"Context:\n {context} \n\n Query:\n{query}", documents=similar_texts)
+    # Create a TF-IDF vectorizer
+    vectorizer = TfidfVectorizer()
 
-            st.session_state.requests.append(query)
-            st.session_state.responses.append(response)
+    # Fit the vectorizer on the document text
+    vectorizer.fit([document_text])
 
-with response_container:
-    if st.session_state['responses']:
-        for i in range(len(st.session_state['responses'])):
-            message(st.session_state['responses'][i], key=str(i))
-            if i < len(st.session_state['requests']):
-                message(st.session_state["requests"][i], is_user=True, key=str(i) + '_user')
+    # Transform the document text into embeddings
+    document_embeddings = vectorizer.transform([document_text]).toarray()
+
+    return document_embeddings
+
+# Helper function to preprocess the document content
+def preprocess_document(document_content):
+    # Convert the document content to text or preprocess it as required
+    document_text = ""
+
+    return document_text
+
+# Helper function to save document embeddings to Supabase
+def save_embeddings_to_supabase(document_name, document_embeddings):
+    # Create a list of dictionaries representing the document embeddings
+    embeddings_data = [
+        {"document_name": document_name, "embedding": embedding.tolist()}
+        for embedding in document_embeddings
+    ]
+
+    # Insert the embeddings data into the Supabase table
+    response = supabase_client.table("Documents").insert(embeddings_data).execute()
+
+    # Check the response status to ensure the data was successfully saved
+    if response.status_code == 201:
+        print("Embeddings saved to Supabase successfully")
+    else:
+        print("Failed to save embeddings to Supabase")
