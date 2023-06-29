@@ -16,10 +16,10 @@ from utils import *
 st.subheader("Chatbot with Langchain, ChatGPT, ChromaDB, and Streamlit")
 
 # Initialize ChatGPT model
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key="")
+llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key="***REMOVED***")
 
 # Initialize SentenceTransformer model
-sentence_transformer_model = SentenceTransformer("Your-Sentence-Transformer-Model-Name")
+sentence_transformer_model = SentenceTransformer("LLM chatbot")
 
 # Initialize ChromaDB
 chromadb = ChromaDB("Your-ChromaDB-Path")
