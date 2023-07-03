@@ -1,8 +1,9 @@
-langchain
-openai
-streamlit
 fastapi
 uvicorn
+streamlit
+requests
+python-dotenv
+langchain
+openai
 sentence-transformers
-supabase
-streamlit-chat
+qdrant-client
