@@ -1,23 +1,17 @@
 # Python
-*.pyc
-*.pyo
 __pycache__/
-venv/
-*.egg-info/
-dist/
-build/
+*.py[cod]
+*.pyo
+*.pyd
 
 # Streamlit
-streamlit/*.pyc
-streamlit/*.pyo
-streamlit/__pycache__/
+streamlit/.streamlit/
 
-# IDE
-.idea/
-
-# Environments
+# Environment
 .env
-.DS_Store
 
-# Supabase
-supabase.key
+# Logs
+logs/
+
+# Other
+venv/
