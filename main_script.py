@@ -1,90 +1,101 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import ConversationChain
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
-from langchain.prompts import (
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-    ChatPromptTemplate,
-    MessagesPlaceholder
-)
 import streamlit as st
-import io
-from sklearn.feature_extraction.text import TfidfVectorizer
-from streamlit_chat import message
-from utils import *
-import supabase
+import requests
+import os
+from dotenv import load_dotenv
+from langchain.llms import OpenAI
+import openai
+from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
+from qdrant_client.models import VectorParams, Distance
+from qdrant_client.http.models import PointStruct
+from qdrant_client.http.exceptions import ResponseHandlingException
 
-# Initialize ChatGPT model
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key="YOUR_OPENAI_API_KEY")
+# Load environment variables
+load_dotenv()
+OPENAI_KEY = os.getenv("OPENAI_KEY")
+QDRANT_KEY = os.getenv("QDRANT_KEY")
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_COLLECTION_NAME = "embeddings"
 
-# Initialize Supabase client
-supabase_url = "https://ffcrjxswlivnhtlkjyym.supabase.co"
-supabase_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmY3JqeHN3bGl2bmh0bGtqeXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODgwMzYyNTksImV4cCI6MjAwMzYxMjI1OX0.EL_nf3hQiuwGUcAF4JKkafFGtR75c3eoK4wMuOt_8GE"
-supabase_client = supabase.create_client(supabase_url, supabase_key)
+# Initialize Langchain client
+llm = OpenAI(openai_api_key=OPENAI_KEY)
 
-# Initialize ConversationChain and buffer memory
-if 'buffer_memory' not in st.session_state:
-    st.session_state.buffer_memory = ConversationBufferWindowMemory(k=3, return_messages=True)
+# Initialize SentenceTransformer model
+sentence_transformer_model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
 
-system_msg_template = SystemMessagePromptTemplate.from_template(
-    template="""Answer the question as truthfully as possible using the provided context, 
-    and if the answer is not contained within the text below, say 'I don't know'"""
+# Initialize Qdrant client
+qdrant_client = QdrantClient(
+    url=QDRANT_URL,
+    api_key=QDRANT_KEY
 )
 
-# Streamlit app code
-st.subheader("LLM Chatbot")
+# Streamlit app
+st.title("LLM Chatbot")
+st.write("Upload a PDF file")
 
-# File upload functionality
-uploaded_file = st.file_uploader("Upload a document", type=["pdf"])
+# File upload
+uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
 
+# Process uploaded file
 if uploaded_file is not None:
-    document_name = uploaded_file.name
-    document_content = io.BytesIO(uploaded_file.read())
+    st.write("File uploaded successfully!")
+    content = uploaded_file.read().decode("ISO-8859-1")
 
-    # Process the document and extract embeddings
-    document_embeddings = process_document(document_content)
+    if content:
+        # Preprocess and convert to document embeddings
+        embeddings = sentence_transformer_model.encode([content])[0]
+        st.write("Embeddings generated successfully!")
 
-    # Save document embeddings to Supabase
-    save_embeddings_to_supabase(document_name, document_embeddings)
+        # Create a single point for the entire document
+        point = PointStruct(id=1, vector=embeddings.tolist())
 
-    st.success("Document uploaded and embeddings saved to Supabase.")
+        try:
+            # Insert point into Qdrant collection
+            operation_info = qdrant_client.upsert(
+                collection_name=QDRANT_COLLECTION_NAME,
+                wait=True,
+                points=[point]
+            )
 
-# Helper function to process the document and extract embeddings
-def process_document(document_content):
-    # Convert the document content to text or process it as required
-    document_text = preprocess_document(document_content)
+            if operation_info:
+                st.write("File processed and embeddings saved to Qdrant!")
+            else:
+                st.write("Failed to save embeddings to Qdrant.")
+        except ResponseHandlingException as e:
+            st.write("Error occurred during the Qdrant upsert operation:")
+            st.write(str(e))
 
-    # Create a TF-IDF vectorizer
-    vectorizer = TfidfVectorizer()
+# Get Answer tab
+st.sidebar.title("Get Answer")
+user_question = st.sidebar.text_input("Ask a question")
+if user_question:
+    try:
+        # Encode question
+        question_embedding = sentence_transformer_model.encode([user_question])[0]
 
-    # Fit the vectorizer on the document text
-    vectorizer.fit([document_text])
+        # Query Qdrant for relevant documents
+        search_result = qdrant_client.search(
+            collection_name=QDRANT_COLLECTION_NAME,
+            query_vector=question_embedding.tolist(),
+            limit=5
+        )
 
-    # Transform the document text into embeddings
-    document_embeddings = vectorizer.transform([document_text]).toarray()
+        # Generate answer using GPT-3.5-turbo model
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_question}
+            ]
+        )
 
-    return document_embeddings
+        # Extract the generated answer
+        answer = response.choices[0].message.content
 
-# Helper function to preprocess the document content
-def preprocess_document(document_content):
-    # Convert the document content to text or preprocess it as required
-    document_text = ""
+        # Display the answer
+        st.subheader("Answer:")
+        st.write(answer)
 
-    return document_text
-
-# Helper function to save document embeddings to Supabase
-def save_embeddings_to_supabase(document_name, document_embeddings):
-    # Create a list of dictionaries representing the document embeddings
-    embeddings_data = [
-        {"document_name": document_name, "embedding": embedding.tolist()}
-        for embedding in document_embeddings
-    ]
-
-    # Insert the embeddings data into the Supabase table
-    response = supabase_client.table("Documents").insert(embeddings_data).execute()
-
-    # Check the response status to ensure the data was successfully saved
-    if response.status_code == 201:
-        print("Embeddings saved to Supabase successfully")
-    else:
-        print("Failed to save embeddings to Supabase")
+    except Exception as e:
+        st.write("An error occurred while generating the answer:")
+        st.write(str(e))
