@@ -3,11 +3,11 @@ import requests
 import os
 from dotenv import load_dotenv
 from langchain.llms import OpenAI
-import openai
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance
 from qdrant_client.http.models import PointStruct
+import openai
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 # Load environment variables
@@ -19,6 +19,7 @@ QDRANT_COLLECTION_NAME = "embeddings"
 
 # Initialize Langchain client
 llm = OpenAI(openai_api_key=OPENAI_KEY)
+
 
 # Initialize SentenceTransformer model
 sentence_transformer_model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
