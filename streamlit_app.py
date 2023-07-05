@@ -1,25 +1,23 @@
 import streamlit as st
-import requests
 import os
+import openai
 from dotenv import load_dotenv
-from langchain.llms import OpenAI
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance
 from qdrant_client.http.models import PointStruct
-import openai
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 # Load environment variables
 load_dotenv()
-OPENAI_KEY = os.getenv("OPENAI_KEY")
-QDRANT_KEY = os.getenv("QDRANT_KEY")
-QDRANT_URL = os.getenv("QDRANT_URL")
+
+# Get environment variables
+OPENAI_KEY = os.getenv('OPENAI_KEY')
+QDRANT_KEY = os.getenv('QDRANT_KEY')
+QDRANT_URL = os.getenv('QDRANT_URL')
 QDRANT_COLLECTION_NAME = "embeddings"
 
-# Initialize Langchain client
-llm = OpenAI(openai_api_key=OPENAI_KEY)
-
+# Initialize OpenAI API
+openai.api_key = OPENAI_KEY
 
 # Initialize SentenceTransformer model
 sentence_transformer_model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
@@ -32,20 +30,23 @@ qdrant_client = QdrantClient(
 
 # Streamlit app
 st.title("LLM Chatbot")
-st.write("Upload a PDF file")
 
-# File upload
-uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+# Sidebar - File upload
+st.sidebar.subheader("Upload a PDF file")
+uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type=["pdf"])
+
+# Main content
+st.subheader("Chat")
+
+# Conversation history
+conversation = []
 
 # Process uploaded file
 if uploaded_file is not None:
-    st.write("File uploaded successfully!")
     content = uploaded_file.read().decode("ISO-8859-1")
-
     if content:
         # Preprocess and convert to document embeddings
         embeddings = sentence_transformer_model.encode([content])[0]
-        st.write("Embeddings generated successfully!")
 
         # Create a single point for the entire document
         point = PointStruct(id=1, vector=embeddings.tolist())
@@ -59,44 +60,49 @@ if uploaded_file is not None:
             )
 
             if operation_info:
-                st.write("File processed and embeddings saved to Qdrant!")
+                # st.success("File processed and embeddings saved to Qdrant!")
+                pass
             else:
-                st.write("Failed to save embeddings to Qdrant.")
+                st.error("Failed to save embeddings to Qdrant.")
         except ResponseHandlingException as e:
-            st.write("Error occurred during the Qdrant upsert operation:")
-            st.write(str(e))
+            st.error("Error occurred during the Qdrant upsert operation:")
+            st.error(str(e))
 
-# Get Answer tab
-st.sidebar.title("Get Answer")
-user_question = st.sidebar.text_input("Ask a question")
-if user_question:
-    try:
-        # Encode question
-        question_embedding = sentence_transformer_model.encode([user_question])[0]
+# Answer user's questions
+user_input = st.text_area("User Input", value='', height=100, key='user_input')
 
-        # Query Qdrant for relevant documents
-        search_result = qdrant_client.search(
-            collection_name=QDRANT_COLLECTION_NAME,
-            query_vector=question_embedding.tolist(),
-            limit=5
+if st.button("Ask"):
+    if user_input.strip() != '':
+        # Add user question to conversation history
+        conversation.append(("user", user_input))
+
+        # Generate answer using OpenAI's GPT-3.5 API
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=user_input + "\nAnswer:",
+            max_tokens=1500,
+            temperature=0.7,
+            top_p=1.0,
+            n=1,
+            stop=None,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
         )
 
-        # Generate answer using GPT-3.5-turbo model
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_question}
-            ]
-        )
+        if response.choices and response.choices[0].text.strip():
+            answer = response.choices[0].text.strip()
 
-        # Extract the generated answer
-        answer = response.choices[0].message.content
+            # Add bot answer to conversation history
+            conversation.append(("bot", answer))
 
-        # Display the answer
-        st.subheader("Answer:")
-        st.write(answer)
+# Display conversation history
+for role, message in conversation:
+    if role == "user":
+        conversation_markdown = f"**User:** {message}"
+    else:
+        conversation_markdown = f"**Bot:** {message}"
+    st.markdown(conversation_markdown, unsafe_allow_html=True)
 
-    except Exception as e:
-        st.write("An error occurred while generating the answer:")
-        st.write(str(e))
+# Add a button to clear the conversation history
+if st.button("Clear conversation"):
+    conversation.clear()
