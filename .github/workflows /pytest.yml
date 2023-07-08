@@ -1,115 +1,26 @@
-import pytest
-from streamlit.server.Server import Server
-import os
-import streamlit as st
-import openai
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import ConversationChain
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
-from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient
-from qdrant_client.http.models import PointStruct
-from qdrant_client.http.exceptions import ResponseHandlingException
+python:
+  version: 3.9
 
-@pytest.fixture(scope="module")
-def streamlit_server():
-    # Start the Streamlit server in a separate thread
-    server = Server()
-    server.start(port=8501)
+# Cache dependencies for faster test runs
+cache:
+  directories:
+    - $HOME/.cache/pip
 
-    yield server
+# Define the jobs to run
+jobs:
+  include:
+    - name: Run tests
+      steps:
+        - name: Set up Python environment
+          uses: actions/setup-python@v2
+          with:
+            python-version: 3.9
 
-    # Stop the Streamlit server after the tests have completed
-    server.stop()
+        - name: Checkout code
+          uses: actions/checkout@v2
 
-@pytest.fixture(scope="module")
-def setup_environment():
-    # Load environment variables
-    load_dotenv()
+        - name: Install dependencies
+          run: pip install -r requirements.txt
 
-    # Get environment variables
-    OPENAI_KEY = os.getenv('OPENAI_KEY')
-    QDRANT_KEY = os.getenv('QDRANT_KEY')
-    QDRANT_URL = os.getenv('QDRANT_URL')
-
-    # Initialize OpenAI API
-    openai.api_key = OPENAI_KEY
-
-    # Initialize SentenceTransformer model
-    sentence_transformer_model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
-
-    # Initialize Qdrant client
-    qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_KEY)
-
-    # Initialize the language model and memory objects
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key=OPENAI_KEY)
-    buffer_memory = ConversationBufferWindowMemory(k=3)
-    conversation = ConversationChain(llm=llm, memory=buffer_memory)
-
-    # Set up session state
-    st.session_state['conversation'] = []
-
-    # Set up Qdrant collection (optional)
-
-    yield
-
-    # Tear down resources (if needed)
-
-def test_app(streamlit_server, setup_environment):
-    # Simulate user interactions and test the expected outputs
-
-    # Test the "Reset Chat" button functionality
-    # Simulate a button click and check if the conversation history is reset
-    with streamlit_server.empty_persistent_message_ctx():
-        st.button("Reset Chat")
-        conversation = st.session_state['conversation']
-        assert len(conversation) == 0
-
-    # Test uploading a PDF file and processing
-    # Simulate a file upload and check if the embeddings are saved to Qdrant
-    with streamlit_server.file_uploader_ctx("Choose a PDF file", type=["pdf"]):
-        # Simulate uploading a file
-        uploaded_file = "path/to/file.pdf"
-        st.session_state['uploaded_file'] = uploaded_file
-        content = open(uploaded_file, "r").read()
-
-        # Check if embeddings are saved to Qdrant
-        embeddings = sentence_transformer_model.encode([content])[0]
-        point = PointStruct(id=1, vector=embeddings.tolist())
-        operation_info = qdrant_client.upsert(QDRANT_COLLECTION_NAME, True, [point])
-        assert operation_info is not None
-
-    # Test user input and bot response
-    # Simulate user input and check if the conversation history is updated
-    with streamlit_server.chat_input_ctx("What is up?"):
-        # Simulate user input
-        user_input = "Hello"
-        st.session_state['user_input'] = user_input
-
-        # Check if the conversation history is updated correctly
-        conversation = st.session_state['conversation']
-        assert len(conversation) == 2
-        assert conversation[-2]['role'] == 'user'
-        assert conversation[-2]['content'] == user_input
-        assert conversation[-1]['role'] == 'assistant'
-
-    # Test conversation history display
-    # Check if the conversation history is correctly displayed
-    with streamlit_server.empty_persistent_message_ctx():
-        conversation = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi, how can I assist you?"}
-        ]
-        st.session_state['conversation'] = conversation
-
-        # Check if the conversation history is displayed correctly
-        for message in conversation:
-            role = message["role"]
-            content = message["content"]
-            with streamlit_server.chat_message_ctx(role):
-                st.markdown(content)
-                assert streamlit_server.results[-1].content == content
-
-    # TODO: Add more tests as needed
-
+        - name: Run pytest
+          run: pytest --cov-report=xml --cov=streamlit_app tests/
