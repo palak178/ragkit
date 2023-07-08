@@ -1,26 +1,30 @@
-python:
-  version: 3.9
+# pytest.yml
 
-# Cache dependencies for faster test runs
-cache:
-  directories:
-    - $HOME/.cache/pip
+name: Run Python Tests
 
-# Define the jobs to run
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
 jobs:
-  include:
-    - name: Run tests
-      steps:
-        - name: Set up Python environment
-          uses: actions/setup-python@v2
-          with:
-            python-version: 3.9
+  test:
+    runs-on: ubuntu-latest
 
-        - name: Checkout code
-          uses: actions/checkout@v2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-        - name: Install dependencies
-          run: pip install -r requirements.txt
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
 
-        - name: Run pytest
-          run: pytest --cov-report=xml --cov=streamlit_app tests/
+      - name: Install dependencies
+        run: pip install -r LLM_Chatbot/requirements.txt
+
+      - name: Run tests
+        run: pytest
