@@ -54,7 +54,7 @@ streamlit run app.py
 
 Access the deployed Streamlit app here
 
-[https://your-app-url.com](https://llmchatbot-dsazs9cvyf.streamlit.app/)https://llmchatbot-dsazs9cvyf.streamlit.app/
+https://llmchatbot-dsazs9cvyf.streamlit.app/
 
 
 
