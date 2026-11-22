@@ -1,0 +1,28 @@
+// Labelled eval set. One JSON object per line; `//` lines are ignored.
+//
+// `gold_substring` is text that must appear in the chunk a correct retrieval returns. Labelled
+// by substring rather than chunk id on purpose: ids change whenever chunk_chars changes, so an
+// id-labelled set could not be used to compare chunking configurations.
+//
+// `answerable: false` rows have no gold chunk. They exist because a system can score 100% on
+// every other metric by answering everything, and refusing correctly is half the job.
+{"question": "How much notice must an employee give before resigning?", "answerable": true, "gold_substring": "thirty days written notice"}
+{"question": "What notice period applies during probation?", "answerable": true, "gold_substring": "seven days notice instead of thirty"}
+{"question": "How long is the probation period and can it be extended?", "answerable": true, "gold_substring": "extended once, by a maximum of three months"}
+{"question": "How many days of annual leave do full-time employees accrue?", "answerable": true, "gold_substring": "twenty-one days of paid annual leave"}
+{"question": "When does unused annual leave expire?", "answerable": true, "gold_substring": "expires on 31 March"}
+{"question": "How many paid sick days are there and when is a medical certificate needed?", "answerable": true, "gold_substring": "medical certificate is required"}
+{"question": "How much paid parental leave does a primary caregiver receive?", "answerable": true, "gold_substring": "twenty-six weeks of paid parental leave"}
+{"question": "What are the core hours for remote employees?", "answerable": true, "gold_substring": "core hours of 10:00 to 16:00"}
+{"question": "What replacement fee applies to equipment that is not returned?", "answerable": true, "gold_substring": "replacement fee of 400 pounds"}
+{"question": "What is the deadline for submitting an expense claim?", "answerable": true, "gold_substring": "within sixty days of the date on the receipt"}
+{"question": "Who approves an expense claim above 2000 pounds?", "answerable": true, "gold_substring": "department head and the finance director"}
+{"question": "What is the mileage reimbursement rate for a private vehicle?", "answerable": true, "gold_substring": "45 pence per mile"}
+{"question": "What is the nightly accommodation limit in London?", "answerable": true, "gold_substring": "150 pounds per night in London"}
+{"question": "Is alcohol reimbursable on expenses?", "answerable": true, "gold_substring": "Alcohol is not reimbursable"}
+{"question": "What is the capital city of Mongolia?", "answerable": false, "gold_substring": null}
+{"question": "Who won the 1998 football World Cup final?", "answerable": false, "gold_substring": null}
+{"question": "What is the company's share price today?", "answerable": false, "gold_substring": null}
+{"question": "How do I configure a Kubernetes ingress controller?", "answerable": false, "gold_substring": null}
+{"question": "What is the recommended dosage of ibuprofen for a child?", "answerable": false, "gold_substring": null}
+{"question": "Which cryptocurrency should I invest my bonus in?", "answerable": false, "gold_substring": null}

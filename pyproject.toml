@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragkit"
+version = "0.1.0"
+description = "Grounded retrieval-augmented question answering: cited answers, or an explicit refusal."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Palak Namdev" }]
+keywords = ["rag", "retrieval-augmented-generation", "embeddings", "vector-search", "groundedness", "citations", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+]
+
+# The core package deliberately carries no model, no vector database and no LLM SDK. Every
+# one of those is reached through a Protocol (see `ports.py`), so the import graph of a
+# default install is small, offline and fast — and the whole test suite runs against fakes
+# with no network, no torch and no API key. Real backends are opt-in extras below.
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pypdf>=5.1",          # PDF text extraction. The old app decoded PDF bytes as latin-1.
+    "typer>=0.15",
+]
+
+[project.optional-dependencies]
+# Local sentence-transformers embeddings. Pulls torch, which is why it is not a core dep.
+local = ["sentence-transformers>=3.3"]
+# Qdrant-backed vector store. The in-memory store is the default and needs nothing.
+qdrant = ["qdrant-client>=1.12"]
+# HTTP surface. python-multipart is required for file uploads, not optional: without it
+# FastAPI raises at request time rather than at import, so the /ingest endpoint fails only
+# when someone actually uses it.
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.32", "python-multipart>=0.0.12"]
+# LLM providers. The package talks to a Protocol, so these are interchangeable.
+openai = ["openai>=1.57"]
+anthropic = ["anthropic>=0.40"]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "httpx>=0.27",
+    "fastapi>=0.115",
+    "python-multipart>=0.0.12",
+]
+
+[project.scripts]
+ragkit = "ragkit.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ragkit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The repository root goes on sys.path so `from tests.conftest import ...` resolves under a
+# bare `pytest` as well as `python -m pytest`.
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: needs a real backend (Qdrant, a provider API key or a downloaded model)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "eval"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer and FastAPI both express their argument declarations *as* calls in parameter
+# defaults. B008 is a good rule in general and simply does not apply to either framework.
+"src/ragkit/cli.py" = ["B008"]
+"src/ragkit/api.py" = ["B008"]
+# These two exist to handle confusable Unicode punctuation, so the fold table and the tests
+# that prove it works must contain the confusables themselves. Flagging them here would be
+# flagging the feature.
+"src/ragkit/ground.py" = ["RUF001"]
+"tests/test_ground.py" = ["RUF001"]

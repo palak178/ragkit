@@ -1,0 +1,104 @@
+name: CI
+
+# Every branch. A trigger limited to the default branch is a workflow that silently stops
+# running the moment the default branch is renamed, which is a failure mode that looks
+# exactly like a healthy config.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint + tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # Only the dev extra. No torch, no provider SDK, no vector database: the suite runs
+      # against the in-memory store, the hashing embedder and the extractive stub, which is
+      # what keeps CI under a minute and offline.
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Format check
+        run: python -m ruff format --check .
+
+      - name: Tests
+        run: python -m pytest -q
+
+      # The suite must stay runnable by someone who clones and types `pytest`, not only via
+      # `python -m pytest`. These resolve `sys.path` differently and the difference has
+      # already caused five collection errors in a sibling project of mine.
+      - name: Tests via the console script
+        run: pytest -q
+
+      # A green suite says the code does what the tests expect. The eval says retrieval and
+      # refusal still behave, which is the claim the README makes, so it is gated too.
+      - name: Eval
+        run: python eval/run_eval.py
+
+  qdrant:
+    name: Qdrant integration
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+
+    env:
+      RAGKIT_QDRANT_URL: http://localhost:6333
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev,qdrant]"
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:6333/readyz > /dev/null; then
+              echo "Qdrant ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Qdrant never became ready"; exit 1
+
+      - name: Integration tests
+        run: python -m pytest tests/test_qdrant_integration.py -m integration -q
+
+      # These tests skip themselves when no server is reachable, so a broken service block
+      # would look identical to a green run. Fail loudly instead of quietly losing the only
+      # coverage of the payload round-trip.
+      - name: Assert they actually ran
+        run: |
+          python -m pytest tests/test_qdrant_integration.py -m integration -q 2>&1 | tee /tmp/q.log
+          if grep -qi 'skipped' /tmp/q.log; then
+            echo "::error::Qdrant tests were skipped - the service was not reachable"
+            exit 1
+          fi

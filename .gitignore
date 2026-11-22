@@ -1,17 +1,44 @@
+# Secrets. `.env` is listed first because this repository once committed one containing a
+# live API key. A rule here does nothing for an already-tracked file, so if you ever find a
+# secret committed: rotate it first, then rewrite history. In that order.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.egg-info/
+build/
+dist/
+.eggs/
 
-# Streamlit
-streamlit/.streamlit/
+# Environments
+.venv/
+venv/
+env/
 
-# Environment
-.env
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-# Logs
+# Local data: indexes and uploads are reproducible from the corpus, so they are not tracked.
+*.sqlite
+*.sqlite3
+.ragkit/
+uploads/
 logs/
 
-# Other
-venv/
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
