@@ -1,11 +1,14 @@
 """Vector stores.
 
-Both implementations store the chunk **text** alongside its vector. That sounds too obvious
-to mention, except that the version of this project being replaced wrote
-`PointStruct(id=1, vector=...)` with no payload at all: the index physically could not return
-text, so "retrieval-grounded answers" was impossible by construction, and the hard-coded `id=1`
-meant every ingested document overwrote the previous one. Both are fixed here, and the
-`VectorStore` protocol is shaped so neither can recur — it takes `Chunk` objects, not vectors.
+Both implementations store the chunk **text** alongside its vector, and the `VectorStore`
+protocol is shaped to make that structural: it takes `Chunk` objects, not bare vectors. An
+index that holds vectors with no payload cannot return text, which makes grounded answers
+impossible by construction rather than merely unreliable — so the type system is where that
+gets prevented, not a convention.
+
+Point identity is derived from `chunk_id` for the same reason. A store keyed on anything
+less specific lets one ingested document overwrite another, and the symptom is a silently
+shrinking index rather than an error.
 """
 
 from __future__ import annotations
@@ -149,8 +152,9 @@ class QdrantStore:
             PointStruct(
                 id=self._point_id(chunk.chunk_id),
                 vector=list(vector),
-                # The payload carries the text. This is the line whose absence made the
-                # original project's central claim false.
+                # The payload carries the text. Without it the collection holds vectors
+                # that can be ranked but never read back, which is the one thing a
+                # retrieval index exists to do.
                 payload={
                     "chunk_id": chunk.chunk_id,
                     "doc_id": chunk.doc_id,

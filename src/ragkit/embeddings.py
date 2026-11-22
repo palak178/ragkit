@@ -9,8 +9,8 @@ work offline, in milliseconds, with no model download, no torch and no API key, 
 the test suite and the eval harness measure this package's logic rather than a model's. For
 real semantic retrieval, install the `local` extra and set `RAGKIT_EMBEDDER=sentence-transformers`.
 
-Saying "semantic search" of the hashing backend would be the same category of overclaim this
-repository was rewritten to remove, so the README states the distinction too.
+Calling the hashing backend "semantic search" would be an overclaim, so neither this module
+nor the README does.
 """
 
 from __future__ import annotations

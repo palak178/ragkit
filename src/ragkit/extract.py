@@ -1,9 +1,9 @@
 """Getting text out of files.
 
-The project this replaces did `uploaded_file.read().decode("ISO-8859-1")` on PDF bytes and
-embedded the result. That is not text extraction — a PDF is a compressed binary container, so
-what it produced was mojibake, and every claim downstream of it was therefore false. This
-module uses a real parser and refuses files it cannot actually read.
+A PDF is a compressed binary container, so decoding its bytes with a text codec does not
+yield text — it yields mojibake that embeds cleanly, indexes cleanly and poisons every claim
+downstream. This module uses a real parser, and refuses files it cannot actually read rather
+than passing through whatever bytes it managed to decode.
 """
 
 from __future__ import annotations

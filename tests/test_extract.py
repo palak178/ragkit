@@ -38,8 +38,8 @@ class TestPlainText:
             extract(corpus_dir / "empty.txt")
 
     def test_invalid_utf8_is_rejected_not_mangled(self, tmp_path: Path):
-        # The original project's bug in miniature: a lossy fallback encoding would "succeed"
-        # and index mojibake.
+        # A lossy fallback encoding would "succeed" here and index mojibake, which is worse
+        # than failing: every later stage reports success over corrupted text.
         path = tmp_path / "latin.txt"
         path.write_bytes(b"caf\xe9 pr\xe9sent\xe9 \xff\xfe invalid")
         with pytest.raises(ExtractionError, match="UTF-8"):

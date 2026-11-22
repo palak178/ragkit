@@ -1,8 +1,8 @@
 """Configuration, from the environment with explicit defaults.
 
 Every value a reviewer might want to change is here rather than inline, and every one is
-documented with the trade-off it controls. `RAGKIT_` prefixed so it cannot collide — the
-project this replaced read an environment variable literally named `api_key`.
+documented with the trade-off it controls. `RAGKIT_` prefixed, because an unprefixed name
+like `api_key` or `model` collides with whatever else happens to be set on the machine.
 
 Secrets are read from the environment and never written back to a model, a log line or an
 API response. There is no `.env` in this repository; `.env.example` shows the shape.

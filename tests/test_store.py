@@ -1,9 +1,9 @@
 """Tests for the in-memory store.
 
-Two of these exist specifically because of the bugs in the project this replaces: the index
-must return chunk **text** (it previously stored vectors with no payload) and re-ingesting a
-document must replace its chunks rather than overwrite an unrelated one (every point was
-written with a hard-coded `id=1`).
+Two of these guard properties that are easy to lose and silent when lost: the index must
+return chunk **text**, not just rank vectors, and re-ingesting a document must replace its
+own chunks rather than overwrite an unrelated one. Neither failure raises; both just make
+retrieval quietly useless.
 
 `QdrantStore` is exercised by `tests/test_qdrant_integration.py`, which skips without a
 reachable server; there is no mock of it here, because a mocked vector database asserts only
@@ -51,8 +51,8 @@ class TestUpsert:
         assert store.count() == 2
 
     def test_search_returns_the_chunk_text(self, store: InMemoryStore):
-        # The bug this project was rewritten to fix: an index that cannot return text makes
-        # grounded answers impossible by construction.
+        # An index that can rank but not return text makes grounded answers impossible by
+        # construction, so this asserts the payload round-trips rather than just the score.
         store.upsert([chunk("d:0", "Employees must give thirty days notice.")], [[1.0, 0.0]])
         hit = store.search([1.0, 0.0], limit=1)[0]
         assert hit.chunk.text == "Employees must give thirty days notice."
