@@ -3,7 +3,7 @@
 **Grounded retrieval-augmented question answering: a cited answer, or an explicit refusal.
 Never an uncited one.**
 
-[![CI](https://github.com/palak178/LLM_Chatbot/actions/workflows/ci.yml/badge.svg)](https://github.com/palak178/LLM_Chatbot/actions/workflows/ci.yml)
+[![CI](https://github.com/palak178/ragkit/actions/workflows/ci.yml/badge.svg)](https://github.com/palak178/ragkit/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
 
@@ -33,7 +33,7 @@ not evidence, however plausible it reads, and the answer is withheld.
 No API key, no model download, no database. A fresh clone works offline.
 
 ```bash
-git clone https://github.com/palak178/LLM_Chatbot.git ragkit && cd ragkit
+git clone https://github.com/palak178/ragkit.git && cd ragkit
 python -m pip install -e ".[dev]"
 
 make demo          # a question the corpus answers
