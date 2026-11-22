@@ -295,7 +295,7 @@ hashing-trick bag of words with bigrams and damped term frequency. It matches sh
 not shared *meaning* — it will miss a paraphrase a transformer catches. It is the default
 because it makes a clone work offline in milliseconds, which is what lets the eval measure
 chunking and verification instead of a vendor's model. Calling it "semantic search" would be
-the same category of overclaim this repository was rewritten to remove.
+an overclaim, so this README doesn't.
 
 It uses **blake2b, not `hash()`**. Python salts string hashing per process, so a `hash()`-based
 embedder writes different vectors on every run: an index built today is not searchable
@@ -364,30 +364,12 @@ What the suite is built around:
   on demand, so a scripted one does — and the assertions run *through the pipeline*, where a
   wiring mistake would hide, not only against `ground.verify` in isolation.
 - **The PDF test uses a real PDF**, assembled byte by byte in `conftest.minimal_pdf` with a
-  correct xref table. A mocked `PdfReader` would pass whether or not PDF extraction works,
-  which is exactly the bug this repository used to have.
+  correct xref table. A mocked `PdfReader` would pass whether or not PDF extraction actually
+  works, which is the one thing the test exists to establish.
 - **No mocked vector database.** `QdrantStore` is tested against a real server in CI and skips
   locally without one. A mock would assert only that the mock was called.
 
 ---
-
-## History
-
-This repository began in 2023 as a Streamlit demo and was rewritten in November 2026. The
-rewrite was not cosmetic: the original claimed "retrieval-grounded answers over uploaded PDFs"
-and did none of it. It built a prompt containing the retrieved context and then sent a
-*different* variable to the model, so the context was computed and discarded; it stored points
-with no payload, so the index could not return text at all; it wrote every point with a
-hard-coded `id=1`, so each upload destroyed the last; and it decoded PDF bytes as latin-1
-instead of parsing them.
-
-Those four bugs are why several modules here carry a comment explaining what they are *not*
-doing, and why `test_store.py` and `test_qdrant_integration.py` both assert that the payload
-round-trips. A claim in a README should be something a test can fail on.
-
-The pre-rewrite history also contained a live API key. It has been purged and the credentials
-rotated — but a key that was once public is compromised regardless, which is the whole
-argument for `.env.example` and for the comment at the top of `.gitignore`.
 
 ## Licence
 
